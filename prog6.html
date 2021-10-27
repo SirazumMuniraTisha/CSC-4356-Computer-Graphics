@@ -1,0 +1,155 @@
+<!-- Sirazum Munira Tisha stisha1@lsu.edu project 6 -->
+
+<html>
+<head>
+<p>Project 6 by Sirazum Munira Tisha(stisha1@lsu.edu)</p>
+<script type="text/javascript" src="webgl-utils.js"></script>
+<script type="text/javascript" src="webgl-debug.js"></script>
+<script type="text/javascript" src="cuon-utils.js"></script>
+<script type="text/javascript" src="cuon-matrix.js"></script>
+<script type="text/javascript" src="chest.js"></script>
+<script type="text/javascript" src="square.js"></script>
+<script type="text/javascript" src="prog6.js"></script>
+</head>
+<body onload="init()">
+<script id="vertexShader" type="x-shader/x-vertex">
+precision mediump float;
+attribute vec4 vertexPosition;
+attribute vec3 vertexNormal;
+attribute vec2 vertexTexCoord;  //will change for every vertex
+uniform mat4 modelMatrix;   //is uniform for all vertices and will not change
+uniform mat4 viewMatrix;
+uniform mat4 projectionMatrix;
+uniform vec4 lightPosition;
+varying vec3 fragmentNormal;
+varying vec3 fragmentLight;
+varying vec3 fragmentView;
+varying vec4 fragmentPosition;
+varying vec2 fragmentTexCoord;
+void main(){
+    fragmentTexCoord = vertexTexCoord;
+    mat4 modelViewMatrix = viewMatrix*modelMatrix;
+    vec4 p = modelViewMatrix*  vertexPosition;
+    vec4 q = viewMatrix*lightPosition;
+    fragmentPosition = vertexPosition;
+    fragmentNormal = normalize(mat3(modelViewMatrix) * vertexNormal);
+    fragmentLight = normalize(vec3(q-p));
+    fragmentView = normalize(vec3(-p));
+    gl_Position = projectionMatrix * modelViewMatrix * vertexPosition;
+}
+</script>
+<script id="vertexShader1" type="x-shader/x-vertex">
+precision mediump float;
+attribute vec4 vertexPosition;
+attribute vec2 vertexTexCoord;  //will change for every vertex
+varying vec2 fragmentTexCoord;
+void main(){
+    fragmentTexCoord = vertexTexCoord;
+    gl_Position =vertexPosition;
+}
+</script>
+<script id="lightingFragmentShader" type="x-shader/x-fragment">
+precision mediump float;
+varying vec3 fragmentNormal;
+varying vec3 fragmentLight;
+varying vec3 fragmentView;
+varying vec2 fragmentTexCoord;
+uniform vec3 lightColor;
+uniform sampler2D modelTexture;
+void main (){
+    vec4 modelColor = texture2D(modelTexture,fragmentTexCoord);
+    vec3 n = normalize(fragmentNormal);
+    vec3 l = normalize(fragmentLight);
+    vec3 v = normalize(fragmentView);
+    vec3 h =  normalize(vec3(l+v));
+    float d = max(dot(vec3(l),vec3(n)), float(0.0));
+    float s = pow(float(max(dot(vec3 (h), vec3 (n)), float(0.0))), float(10));
+    vec4 fragmentColor =  vec4(modelColor.rgb*lightColor*d+lightColor*s, modelColor.a);
+    gl_FragColor = fragmentColor;
+}
+</script>
+<script id="doNothingFragmentShader" type="x-shader/x-fragment">
+    precision mediump float;
+    varying vec2 fragmentTexCoord;
+    uniform sampler2D colorTexture;
+    void main (){
+        gl_FragColor=texture2D(colorTexture,fragmentTexCoord);
+    }
+</script>
+<script id="thresholdFragmentShader" type="x-shader/x-fragment">
+precision mediump float;
+varying vec2 fragmentTexCoord;
+uniform sampler2D colorTexture;
+void main (){
+    vec3 c = texture2D(colorTexture,fragmentTexCoord).rgb;
+    float d = dot(c, vec3(0.213, 0.715, 0.072));
+    if (d> 0.5){
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    }
+    else {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    }
+
+}
+</script>
+<script id="blurFragmentShader" type="x-shader/x-fragment">
+ precision mediump float;
+varying vec2 fragmentTexCoord;
+uniform sampler2D colorTexture;
+void main (){
+    float d = 1.0 / 512.0;
+
+    vec3 c1 = texture2D(colorTexture, fragmentTexCoord + vec2(-d, -d)).rgb;
+    vec3 c2 = texture2D(colorTexture, fragmentTexCoord + vec2(0, -d)).rgb;
+    vec3 c3 = texture2D(colorTexture, fragmentTexCoord + vec2(+d, -d)).rgb;
+    vec3 c4 = texture2D(colorTexture, fragmentTexCoord + vec2(-d, 0)).rgb;
+    vec3 c5 = texture2D(colorTexture, fragmentTexCoord + vec2(0, 0)).rgb;
+    vec3 c6 = texture2D(colorTexture, fragmentTexCoord + vec2(+d, 0)).rgb;
+    vec3 c7 = texture2D(colorTexture, fragmentTexCoord + vec2(-d, +d)).rgb;
+    vec3 c8 = texture2D(colorTexture, fragmentTexCoord + vec2(0, +d)).rgb;
+    vec3 c9 = texture2D(colorTexture, fragmentTexCoord + vec2(+d, +d)).rgb;
+
+    vec3 c =
+      1.0 * c1 + 2.0 * c2 + 1.0 * c3 +
+      2.0 * c4 + 4.0 * c5 + 2.0 * c6 +
+      1.0 * c7 + 2.0 * c8 + 1.0 * c9;
+    gl_FragColor = vec4(c / 16.0, 1.0);
+}
+</script>
+<script id="edgeEffectFragmentShader" type="x-shader/x-fragment">
+precision mediump float;
+varying vec2 fragmentTexCoord;
+uniform sampler2D colorTexture;
+void main (){
+    float d = 1.0 / 512.0;
+
+    vec3 c1 = texture2D(colorTexture, fragmentTexCoord + vec2(-d, -d)).rgb;
+    vec3 c2 = texture2D(colorTexture, fragmentTexCoord + vec2(0, -d)).rgb;
+    vec3 c3 = texture2D(colorTexture, fragmentTexCoord + vec2(+d, -d)).rgb;
+    vec3 c4 = texture2D(colorTexture, fragmentTexCoord + vec2(-d, 0)).rgb;
+    vec3 c5 = texture2D(colorTexture, fragmentTexCoord + vec2(0, 0)).rgb;
+    vec3 c6 = texture2D(colorTexture, fragmentTexCoord + vec2(+d, 0)).rgb;
+    vec3 c7 = texture2D(colorTexture, fragmentTexCoord + vec2(-d, +d)).rgb;
+    vec3 c8 = texture2D(colorTexture, fragmentTexCoord + vec2(0, +d)).rgb;
+    vec3 c9 = texture2D(colorTexture, fragmentTexCoord + vec2(+d, +d)).rgb;
+
+    vec3 x = (c3 + c6 + c6 + c9) - (c1 + c4 + c4 + c7);
+    vec3 y = (c1 + c2 + c2 + c2) - (c7 + c8 + c8 + c9);
+    gl_FragColor = vec4(sqrt(x * x + y * y), 1.0);
+}
+</script>
+<canvas id="webgl" style= "width: 500px ; height:500px " width="500px" height="500px">
+</canvas>
+<form>
+<label>Do nothing</label>
+<input type="radio" onchange="changeShader()" name = "shader" id="donothing" checked><br>
+<label>blur</label>
+<input type="radio" onchange="changeShader()" name = "shader" id="blur"><br>
+<label>threshold</label>
+<input type="radio" onchange="changeShader()" name = "shader" id="threshold" ><br>
+<label>edgeDetect</label>
+<input type="radio" onchange="changeShader()" name = "shader" id="edgeEffect" >
+<br>
+</form>
+</body>
+</html>
